@@ -37,7 +37,14 @@ class HDDTester(tk.Tk):
         if platform.system() == "Windows":
             self.attributes('-toolwindow', True)
 
-        self.iconphoto(False, tk.PhotoImage(file="icon.png"))
+        # Set icon.ico (taskbar and window icon)
+        if os.path.exists("icon.ico"):
+            self.iconbitmap("icon.ico")
+
+        # Set icon.png (Tkinter internal window icon if available)
+        if os.path.exists("icon.png"):
+            self.iconphoto(False, tk.PhotoImage(file="icon.png"))
+
         self.resizable(False, False)
 
         self.selected_drive = tk.StringVar()
@@ -167,12 +174,17 @@ class HDDTester(tk.Tk):
         info = {}
         try:
             if platform.system() == "Windows":
-                ps_cmd = f"powershell Get-PhysicalDisk | Select-Object -Property FriendlyName, SerialNumber, Size | Format-List"
-                result = subprocess.check_output(ps_cmd, shell=True).decode(errors='ignore')
-                info['Drive Info'] = result.strip()
+                ps_cmd = f"powershell Get-PhysicalDisk | Select-Object FriendlyName,SerialNumber,Size | Format-List"
+                result = subprocess.getoutput(ps_cmd).strip()
+
+                if result == "":
+                    ps_cmd = f"powershell Get-Disk | Select-Object FriendlyName,SerialNumber,Size | Format-List"
+                    result = subprocess.getoutput(ps_cmd).strip()
+
                 match = re.search(r"FriendlyName\s+:\s+(.+)", result)
                 serial = re.search(r"SerialNumber\s+:\s+(.+)", result)
                 size = re.search(r"Size\s+:\s+(\d+)", result)
+
                 info['Drive Model'] = match.group(1).strip() if match else "Unknown"
                 info['Serial Number'] = serial.group(1).strip() if serial else "Unknown"
                 info['Total Capacity'] = size.group(1).strip() + " bytes" if size else "Unknown"
@@ -197,7 +209,7 @@ class HDDTester(tk.Tk):
 
     def test_read_speed(self, volume):
         test_file = os.path.join(volume, "testfile.tmp") if platform.system() == "Windows" else "/tmp/testfile"
-        size = 512 * 1024 * 1024  # 512MB
+        size = 512 * 1024 * 1024
 
         if not os.path.exists(test_file):
             with open(test_file, "wb") as f:
@@ -216,7 +228,7 @@ class HDDTester(tk.Tk):
 
     def test_write_speed(self, volume):
         test_file = os.path.join(volume, "testfile.tmp") if platform.system() == "Windows" else "/tmp/testfile"
-        size = 512 * 1024 * 1024  # 512MB
+        size = 512 * 1024 * 1024
         start = time.time()
         with open(test_file, "wb") as f:
             f.write(b"\0" * size)
@@ -288,3 +300,6 @@ class HDDTester(tk.Tk):
 if __name__ == "__main__":
     app = HDDTester()
     app.mainloop()
+
+# pack with
+# pyinstaller --noconsole --onefile --icon=icon.ico --name=wBench main.pyw
